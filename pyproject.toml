@@ -1,0 +1,44 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "fiverr-copy-lint"
+version = "1.0.0"
+description = "Lint Fiverr gig titles, descriptions, FAQs and buyer messages for words that get messages blocked or gigs denied. CLI, GitHub Action, Claude skill."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "Waseem Nasir" }]
+keywords = ["fiverr", "fiverr-seller", "linter", "freelancing", "compliance", "gig", "copywriting", "claude-skill"]
+classifiers = [
+  "Development Status :: 5 - Production/Stable",
+  "Environment :: Console",
+  "Intended Audience :: End Users/Desktop",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: Text Processing :: Linguistic",
+]
+dependencies = []
+
+[project.optional-dependencies]
+test = ["pytest>=7"]
+
+[project.urls]
+Homepage = "https://github.com/waseemnasir2k26/fiverr-copy-lint"
+Issues = "https://github.com/waseemnasir2k26/fiverr-copy-lint/issues"
+
+[project.scripts]
+fiverr-copy-lint = "fiverr_copy_lint.cli:main"
+
+[tool.setuptools]
+packages = ["fiverr_copy_lint"]
+
+[tool.setuptools.package-data]
+fiverr_copy_lint = ["rules.json"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

@@ -1,0 +1,54 @@
+name: "Fiverr Copy Lint"
+description: "Lint Fiverr gig titles, descriptions, FAQs and buyer messages for words that get messages blocked or gigs denied."
+author: "Waseem Nasir"
+branding:
+  icon: "check-circle"
+  color: "green"
+
+inputs:
+  path:
+    description: "File(s) to lint. Space-separated paths or globs, relative to the workspace."
+    required: true
+  type:
+    description: "title | description | faq | message | request. Empty = guess from the file name."
+    required: false
+    default: ""
+  fail-on:
+    description: "Fail the step on this severity or worse: error | warn | info | never."
+    required: false
+    default: "error"
+  sarif-output:
+    description: "Optional path. When set, a SARIF 2.1.0 report is written there (upload it with github/codeql-action/upload-sarif)."
+    required: false
+    default: ""
+  python-version:
+    description: "Python version used to run the linter (3.10+)."
+    required: false
+    default: "3.12"
+
+runs:
+  using: "composite"
+  steps:
+    - uses: actions/setup-python@v5
+      with:
+        python-version: ${{ inputs.python-version }}
+    - name: Install fiverr-copy-lint
+      shell: bash
+      run: python -m pip install --quiet "$GITHUB_ACTION_PATH"
+    - name: Lint
+      shell: bash
+      env:
+        INPUT_PATH: ${{ inputs.path }}
+        INPUT_TYPE: ${{ inputs.type }}
+        INPUT_FAIL_ON: ${{ inputs.fail-on }}
+        INPUT_SARIF: ${{ inputs.sarif-output }}
+      run: |
+        # shellcheck disable=SC2206
+        files=( $INPUT_PATH )
+        typeargs=()
+        if [ -n "$INPUT_TYPE" ]; then typeargs=(--type "$INPUT_TYPE"); fi
+        if [ -n "$INPUT_SARIF" ]; then
+          fiverr-copy-lint check "${files[@]}" "${typeargs[@]}" --format sarif --fail-on never > "$INPUT_SARIF"
+          echo "SARIF written to $INPUT_SARIF"
+        fi
+        fiverr-copy-lint check "${files[@]}" "${typeargs[@]}" --fail-on "$INPUT_FAIL_ON"

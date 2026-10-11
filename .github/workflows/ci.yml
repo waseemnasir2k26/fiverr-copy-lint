@@ -1,0 +1,58 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: tests (${{ matrix.os }}, py${{ matrix.python }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        python: ["3.10", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - run: python -m pip install -e ".[test]"
+      - run: python -m pytest -q
+      - name: Generated files are up to date
+        run: |
+          python tools/gen_rules.py --check
+          python tools/build_playground.py --check
+      - name: CLI smoke test
+        run: |
+          fiverr-copy-lint rules
+          fiverr-copy-lint check examples/good-gig-description.txt examples/good-gig-title.txt
+
+  action-selftest:
+    name: GitHub Action self-test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Clean examples pass
+        uses: ./
+        with:
+          path: examples/good-gig-title.txt examples/good-gig-description.txt
+      - name: Bad example fails the build as expected
+        id: bad
+        uses: ./
+        continue-on-error: true
+        with:
+          path: examples/bad-message.txt
+          sarif-output: results.sarif
+      - name: The bad example failed and a SARIF file exists
+        run: |
+          test "${{ steps.bad.outcome }}" = "failure"
+          python -c "import json; d=json.load(open('results.sarif')); assert d['version']=='2.1.0' and d['runs'][0]['results']; print(len(d['runs'][0]['results']), 'SARIF results')"

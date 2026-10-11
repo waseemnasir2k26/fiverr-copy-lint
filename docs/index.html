@@ -1,0 +1,578 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Fiverr Copy Lint Playground</title>
+    <meta
+      name="description"
+      content="Paste a Fiverr gig title, description, FAQ or buyer message and see which words may get it blocked. Runs in your browser, nothing is uploaded. Not affiliated with Fiverr."
+    />
+    <style>
+      :root {
+        --bg: #fbfaf7;
+        --fg: #1c1b19;
+        --muted: #6b665e;
+        --card: #fff;
+        --line: #e4dfd5;
+        --err: #b3261e;
+        --warn: #9a6700;
+        --info: #3b6ea5;
+        --ok: #1a7f4b;
+        --accent: #c4501d;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root:not([data-theme="light"]) {
+          --bg: #171614;
+          --fg: #f1eee8;
+          --muted: #a39d92;
+          --card: #201f1c;
+          --line: #34312c;
+          --err: #ff8a80;
+          --warn: #e9b949;
+          --info: #8ab4e8;
+          --ok: #6fcf97;
+          --accent: #ff8a57;
+        }
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--fg);
+        font:
+          16px/1.5 system-ui,
+          -apple-system,
+          Segoe UI,
+          Roboto,
+          sans-serif;
+      }
+      main {
+        max-width: 860px;
+        margin: 0 auto;
+        padding: 24px 16px 48px;
+      }
+      h1 {
+        font-size: 1.5rem;
+        margin: 0 0 4px;
+      }
+      p.sub {
+        color: var(--muted);
+        margin: 0 0 16px;
+      }
+      .row {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        align-items: center;
+        margin: 8px 0;
+      }
+      select,
+      button,
+      textarea {
+        font: inherit;
+        color: inherit;
+        background: var(--card);
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 8px 10px;
+      }
+      button {
+        cursor: pointer;
+      }
+      button.primary {
+        background: var(--accent);
+        color: #fff;
+        border-color: var(--accent);
+      }
+      textarea {
+        width: 100%;
+        min-height: 160px;
+        resize: vertical;
+      }
+      .score {
+        font-size: 2rem;
+        font-weight: 700;
+      }
+      .band-low {
+        color: var(--ok);
+      }
+      .band-medium {
+        color: var(--warn);
+      }
+      .band-high {
+        color: var(--err);
+      }
+      .f {
+        background: var(--card);
+        border: 1px solid var(--line);
+        border-left: 4px solid var(--line);
+        border-radius: 8px;
+        padding: 10px 12px;
+        margin: 8px 0;
+      }
+      .f.error {
+        border-left-color: var(--err);
+      }
+      .f.warn {
+        border-left-color: var(--warn);
+      }
+      .f.info {
+        border-left-color: var(--info);
+      }
+      .f b {
+        font-size: 0.9rem;
+      }
+      .f small {
+        display: block;
+        color: var(--muted);
+      }
+      code {
+        background: var(--line);
+        padding: 1px 5px;
+        border-radius: 4px;
+      }
+      #fixed {
+        white-space: pre-wrap;
+        background: var(--card);
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 10px 12px;
+      }
+      footer {
+        margin-top: 28px;
+        color: var(--muted);
+        font-size: 0.9rem;
+      }
+      a {
+        color: var(--accent);
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Fiverr Copy Lint Playground</h1>
+      <p class="sub">
+        Paste text, see what may get it blocked. Runs entirely in your browser
+        with the same <code>rules.json</code> as the CLI. Community-observed
+        rules, <b>not an official Fiverr list</b>, not affiliated with Fiverr.
+      </p>
+      <div class="row">
+        <label for="type">Text type</label>
+        <select id="type">
+          <option>message</option>
+          <option>title</option>
+          <option>description</option>
+          <option>faq</option>
+          <option>request</option>
+        </select>
+        <button id="ex">Load a bad example</button
+        ><button id="fix" class="primary">Apply safe fixes</button>
+      </div>
+      <textarea
+        id="in"
+        spellcheck="false"
+        placeholder="Paste a gig title, description, FAQ answer or buyer message"
+      ></textarea>
+      <div class="row">
+        <span class="score" id="score">0</span><span id="band"></span
+        ><span id="counts" style="color: var(--muted)"></span>
+      </div>
+      <div id="out"></div>
+      <div id="fixwrap" hidden>
+        <h2 style="font-size: 1.1rem">Fixed text</h2>
+        <div id="fixed"></div>
+      </div>
+      <footer>
+        Part of
+        <a href="https://github.com/waseemnasir2k26/fiverr-copy-lint"
+          >fiverr-copy-lint</a
+        >
+        (MIT). Passing does not guarantee Fiverr accepts the text. Built by
+        <a
+          href="https://www.skynetjoe.com/?utm_source=github&amp;utm_medium=playground&amp;utm_campaign=fiverr-copy-lint"
+          >Waseem Nasir</a
+        >
+        at SkynetLabs.
+      </footer>
+    </main>
+    <script id="engine">
+      /*RULES_JSON_START*/
+      const DATA = {"meta":{"version":"1.0.0","rules_version":"2026.10.1","note":"COMMUNITY-OBSERVED, NOT AN OFFICIAL FIVERR LIST. Fiverr does not publish its filter; these rules come from field observation and common policy themes. Passing this linter does not guarantee Fiverr will accept the text, and failing it does not mean Fiverr will block it.","types":["title","description","faq","message","request"],"severity_weights":{"error":20,"warn":8,"info":2},"bands":[[0,"low"],[20,"medium"],[50,"high"]],"safe_sentence":"Let's keep everything in Fiverr's inbox so you're protected","emoji_ranges":[[127744,129791],[9728,10175],[11088,11088],[11093,11093],[8986,8987],[9193,9210],[127462,127487]],"stopwords":["the","and","for","with","your","you","that","this","from","have","will","are","was","were","our","can","has","not","but","all","any","more","most","very","just","about","into","over","than","then","them","they","their","what","when","where","which","while","also","only","each","both","such","like","make","made","using","use","used","get","got"]},"rules":[{"id":"OP-001","name":"Email address","group":"off-platform","severity":"error","applies":["title","description","faq","message","request"],"kind":"regex","rationale":"Sharing an email address is the most common trigger for the 'keep conversations on Fiverr' block.","suggestion":"Remove the address and invite the buyer to continue in the Fiverr inbox.","examples":{"type":"message","bad":"Email me at john.doe@gmail.com for the details","good":"Send your brief through the Fiverr inbox and I will reply within a day"},"pattern":"(?:\\b(?:e-?mail|mail|write|reach|contact)\\s+(?:me\\s+)?(?:at|on|via|to)?\\s*:?\\s*)?[A-Za-z0-9._%+\\-]+@[A-Za-z0-9\\-]+(?:\\.[A-Za-z0-9\\-]+)+","flags":"i","rewrite":"Let's keep everything in Fiverr's inbox so you're protected"},{"id":"OP-002","name":"Obfuscated email (at/dot)","group":"off-platform","severity":"error","applies":["title","description","faq","message","request"],"kind":"regex","rationale":"Writing an address as 'name (at) site (dot) com' is still an email address and is the classic evasion attempt.","suggestion":"Remove it; do not try to disguise contact details.","examples":{"type":"message","bad":"reach me: john (at) gmail (dot) com","good":"We will meet at the studio in the evening"},"pattern":"\\b[A-Za-z0-9._\\-]{2,}\\s*(?:[\\(\\[\\{]\\s*(?:at|@)\\s*[\\)\\]\\}]|\\s+at\\s+)\\s*[A-Za-z0-9\\-]{2,}\\s*(?:[\\(\\[\\{]\\s*(?:dot|\\.)\\s*[\\)\\]\\}]|\\s+dot\\s+)\\s*(?:com|net|org|io|co|me)\\b","flags":"i","rewrite":"Let's keep everything in Fiverr's inbox so you're protected"},{"id":"OP-003","name":"Mail provider name (incl. spaced-out)","group":"off-platform","severity":"warn","applies":["title","description","faq","message","request"],"kind":"regex","rationale":"Naming a mail provider, even spaced out as 'g m a i l', signals off-platform contact intent.","suggestion":"Remove it and keep the conversation in the Fiverr inbox.","examples":{"type":"message","bad":"Add me on g.m.a.i.l and we continue","good":"Add the details to your order requirements"},"pattern":"\\b(?:g[\\s._\\-*]{0,2}m[\\s._\\-*]{0,2}[a4@][\\s._\\-*]{0,2}[i1!][\\s._\\-*]{0,2}[l1]|h[\\s._\\-*]{0,2}[o0][\\s._\\-*]{0,2}t[\\s._\\-*]{0,2}m[\\s._\\-*]{0,2}[a4@][\\s._\\-*]{0,2}[i1!][\\s._\\-*]{0,2}[l1]|p[\\s._\\-*]{0,2}r[\\s._\\-*]{0,2}[o0][\\s._\\-*]{0,2}t[\\s._\\-*]{0,2}[o0][\\s._\\-*]{0,2}n[\\s._\\-*]{0,2}m[\\s._\\-*]{0,2}[a4@][\\s._\\-*]{0,2}[i1!][\\s._\\-*]{0,2}[l1]|y[\\s._\\-*]{0,2}[a4@][\\s._\\-*]{0,2}h[\\s._\\-*]{0,2}[o0][\\s._\\-*]{0,2}[o0])\\b","flags":"i","rewrite":"Let's keep everything in Fiverr's inbox so you're protected"},{"id":"OP-004","name":"Phone number","group":"off-platform","severity":"error","applies":["title","description","faq","message","request"],"kind":"regex","rationale":"Phone numbers (9 to 15 digits, any common formatting) are blocked as off-platform contact details.","suggestion":"Remove the number.","examples":{"type":"message","bad":"Text me +92 300 1234567 anytime","good":"I delivered 250 orders in 2026-10 with 5 revisions"},"pattern":"(?:(?:(?:message|msg|text|ping|call|add|reach|contact|dm)\\s+(?:me\\s+)?(?:on|at|via)\\s+)?(?:whatsapp|telegram|phone|mobile|cell|tel|number|signal)\b\\s*(?:me\\s+)?(?:on|at|:|number|no\\.?)?\\s*[:\\-]?\\s*|(?:call|text)\\s+(?:me\\s+)?(?:on|at)?\\s*[:\\-]?\\s*)?(?<![\\w$\u20ac\u00a3.])\\+?\\d[\\d \t().\\-]{7,}\\d(?!\\w)","flags":"i","post":"digits:9-15","rewrite":"Let's keep everything in Fiverr's inbox so you're protected"},{"id":"OP-005","name":"Phone number spelled out in words","group":"off-platform","severity":"error","applies":["title","description","faq","message","request"],"kind":"regex","rationale":"Digits written as words ('zero three zero zero ...') are a known evasion for phone numbers.","suggestion":"Remove the number.","examples":{"type":"message","bad":"call zero three zero zero one two three four five","good":"I offer two revisions and one round of feedback"},"pattern":"\\b(?:(?:zero|oh|one|two|three|four|five|six|seven|eight|nine)\\b[\\s,.\\-]*){7,}","flags":"i","rewrite":"Let's keep everything in Fiverr's inbox so you're protected"},{"id":"OP-006","name":"WhatsApp","group":"off-platform","severity":"error","applies":["title","description","faq","message","request"],"kind":"regex","rationale":"WhatsApp is the single most-blocked destination for moving a buyer off the platform.","suggestion":"Remove it; offer to continue in the Fiverr inbox.","examples":{"type":"message","bad":"Message me on W h a t s A p p","good":"I answer every message in the Fiverr inbox"},"pattern":"\\b(?:(?:(?:message|msg|text|ping|call|add|reach|contact|find|dm|chat\\s+with|talk\\s+to)\\s+(?:me\\s+)?)?(?:on|via|through|at|in|using)\\s+|my\\s+|our\\s+)?(?:w[\\s._\\-*]{0,2}h[\\s._\\-*]{0,2}[a4@][\\s._\\-*]{0,2}t[\\s._\\-*]{0,2}[s5\\$][\\s._\\-*]{0,2}[a4@][\\s._\\-*]{0,2}p[\\s._\\-*]{0,2}p|wa\\.me)\\b(?:\\s+(?:number|no\\.?|id|handle|username|group|chat))?","flags":"i","rewrite":"Let's keep everything in Fiverr's inbox so you're protected"},{"id":"OP-007","name":"Telegram","group":"off-platform","severity":"error","applies":["title","description","faq","message","request"],"kind":"regex","rationale":"Telegram is treated as an off-platform chat channel.","suggestion":"Remove it; use the Fiverr inbox.","examples":{"type":"message","bad":"find me on telegram","good":"Questions are welcome in the order chat"},"pattern":"\\b(?:(?:(?:message|msg|text|ping|call|add|reach|contact|find|dm|chat\\s+with|talk\\s+to)\\s+(?:me\\s+)?)?(?:on|via|through|at|in|using)\\s+|my\\s+|our\\s+)?(?:t[\\s._\\-*]{0,2}[e3][\\s._\\-*]{0,2}[l1][\\s._\\-*]{0,2}[e3][\\s._\\-*]{0,2}g[\\s._\\-*]{0,2}r[\\s._\\-*]{0,2}[a4@][\\s._\\-*]{0,2}m|t\\.me)\\b(?:\\s+(?:number|no\\.?|id|handle|username|group|chat))?","flags":"i","rewrite":"Let's keep everything in Fiverr's inbox so you're protected"},{"id":"OP-008","name":"Skype","group":"off-platform","severity":"error","applies":["title","description","faq","message","request"],"kind":"regex","rationale":"Skype is treated as an off-platform chat/call channel.","suggestion":"Remove it; use the Fiverr inbox.","examples":{"type":"message","bad":"add me on skype","good":"We can discuss it in the order chat"},"pattern":"\\b(?:(?:(?:message|msg|text|ping|call|add|reach|contact|find|dm|chat\\s+with|talk\\s+to)\\s+(?:me\\s+)?)?(?:on|via|through|at|in|using)\\s+|my\\s+|our\\s+)?[s5\\$][\\s._\\-*]{0,2}k[\\s._\\-*]{0,2}y[\\s._\\-*]{0,2}p[\\s._\\-*]{0,2}[e3]\\b(?:\\s+(?:number|no\\.?|id|handle|username|group|chat))?","flags":"i","rewrite":"Let's keep everything in Fiverr's inbox so you're protected"},{"id":"OP-009","name":"Discord","group":"off-platform","severity":"error","applies":["title","description","faq","message","request"],"kind":"regex","rationale":"Confirmed live to trigger the filter in a normal discovery message.","suggestion":"Say 'community group' only if truly needed; otherwise remove.","examples":{"type":"message","bad":"join my discord","good":"Join the order conversation any time"},"pattern":"\\b(?:(?:(?:message|msg|text|ping|call|add|reach|contact|find|dm|chat\\s+with|talk\\s+to)\\s+(?:me\\s+)?)?(?:on|via|through|at|in|using)\\s+|my\\s+|our\\s+)?d[\\s._\\-*]{0,2}[i1!][\\s._\\-*]{0,2}[s5\\$][\\s._\\-*]{0,2}c[\\s._\\-*]{0,2}[o0][\\s._\\-*]{0,2}r[\\s._\\-*]{0,2}d\\b(?:\\s+(?:number|no\\.?|id|handle|username|group|chat))?","flags":"i","rewrite":"Let's keep everything in Fiverr's inbox so you're protected"},{"id":"OP-010","name":"Other chat apps (Viber, WeChat, KakaoTalk, LINE)","group":"off-platform","severity":"warn","applies":["title","description","faq","message","request"],"kind":"regex","rationale":"Other messaging apps are treated like WhatsApp.","suggestion":"Remove it; use the Fiverr inbox.","examples":{"type":"message","bad":"my wechat is open","good":"My inbox is open every day"},"pattern":"\\b(?:(?:(?:message|msg|text|ping|call|add|reach|contact|find|dm|chat\\s+with|talk\\s+to)\\s+(?:me\\s+)?)?(?:on|via|through|at|in|using)\\s+|my\\s+|our\\s+)?(?:v[\\s._\\-*]{0,2}[i1!][\\s._\\-*]{0,2}b[\\s._\\-*]{0,2}[e3][\\s._\\-*]{0,2}r|w[\\s._\\-*]{0,2}[e3][\\s._\\-*]{0,2}c[\\s._\\-*]{0,2}h[\\s._\\-*]{0,2}[a4@][\\s._\\-*]{0,2}t|k[\\s._\\-*]{0,2}[a4@][\\s._\\-*]{0,2}k[\\s._\\-*]{0,2}[a4@][\\s._\\-*]{0,2}[o0][\\s._\\-*]{0,2}t[\\s._\\-*]{0,2}[a4@][\\s._\\-*]{0,2}[l1][\\s._\\-*]{0,2}k|line\\s+id)\\b(?:\\s+(?:number|no\\.?|id|handle|username|group|chat))?","flags":"i","rewrite":"Let's keep everything in Fiverr's inbox so you're protected"},{"id":"OP-011","name":"External meeting tool","group":"off-platform","severity":"warn","applies":["title","description","faq","message","request"],"kind":"regex","rationale":"Zoom, Google Meet and similar tools imply moving the conversation off Fiverr. (Can be a false positive in video gigs that mean camera zoom.)","suggestion":"Use Fiverr's own scheduling/offer features or the inbox.","examples":{"type":"message","bad":"we can meet on Zoom tomorrow","good":"We can plan the project in the order chat"},"pattern":"\\b(?:zoom|google\\s+meet|gmeet|ms\\s+teams|microsoft\\s+teams|calendly|hangouts)\\b","flags":"i","rewrite":"Let's keep everything in Fiverr's inbox so you're protected"},{"id":"OP-012","name":"Call me / let's have a call","group":"off-platform","severity":"warn","applies":["faq","message","request"],"kind":"regex","rationale":"Suggesting a call is read as moving off-platform.","suggestion":"Offer to answer in the inbox instead.","examples":{"type":"message","bad":"Let's have a quick call tomorrow","good":"Send me your questions and I will answer here"},"pattern":"\\b(?:call|phone|ring)\\s+me\\b|\\b(?:phone|voice|video)\\s+call\\b|\\b(?:jump|hop)\\s+on\\s+a\\s+(?:quick\\s+)?call\\b|\\blet'?s\\s+(?:have\\s+)?a\\s+(?:quick\\s+)?call\\b","flags":"i","rewrite":"message me here"},{"id":"OP-013","name":"DM me / contact outside Fiverr","group":"off-platform","severity":"error","applies":["title","description","faq","message","request"],"kind":"regex","rationale":"Phrases that explicitly invite off-platform contact are blocked and can lead to account warnings.","suggestion":"Keep every step inside Fiverr.","examples":{"type":"message","bad":"DM me and we continue outside of Fiverr","good":"Message me here and we will finish the order together"},"pattern":"\\b(?:dm|pm)\\s+me\\b|\\bdirect\\s+message\\s+me\\b|\\bhit\\s+me\\s+up\\b|\\bcontact\\s+me\\s+(?:outside|off|directly|privately|externally)\\b|\\b(?:outside|off)\\s+(?:of\\s+)?(?:fiverr|the\\s+platform)\\b|\\b(?:move|take|continue)\\s+(?:this|the|our)\\s+(?:chat|conversation|discussion|talk|deal)\\s+(?:off|outside|elsewhere|to)\\b|\\bcontact\\s+outside\\b|\\bcommunicate\\s+(?:off|outside)\\b","flags":"i","rewrite":"Let's keep everything in Fiverr's inbox so you're protected"},{"id":"OP-014","name":"'Contact me'","group":"off-platform","severity":"warn","applies":["message","request"],"kind":"regex","rationale":"Field-observed as risky in seller-to-buyer messages (see rule catalogue note).","suggestion":"Say 'message me here' instead.","examples":{"type":"message","bad":"Please contact me when you are ready","good":"Please message me here when you are ready"},"pattern":"\\bcontact\\s+me\\b","flags":"i","rewrite":"message me here"},{"id":"OP-015","name":"External URL","group":"off-platform","severity":"error","applies":["title","description","faq","message","request"],"kind":"regex","rationale":"External links in gigs and messages are blocked or stripped. Fiverr's own links are allowed.","suggestion":"Put work samples in the gig gallery/portfolio instead of linking out.","examples":{"type":"message","bad":"See my work at https://example-portfolio.com/work","good":"See the samples in my gig gallery"},"pattern":"(?:\\bhttps?://(?!(?:www\\.)?fiverr\\.com)[^\\s<>\\x22')]+|\\bwww\\.(?!fiverr\\.com)[^\\s<>\\x22')]+|\\b(?!fiverr\\.com\\b)[A-Za-z0-9\\-]+\\.(?:com|net|org|io|co|me|dev|app|xyz)\\b(?:/[^\\s<>\\x22')]*)?)","flags":"i","rewrite":"(link shared in the Fiverr inbox)"},{"id":"OP-016","name":"@handle","group":"off-platform","severity":"warn","applies":["title","description","faq","message","request"],"kind":"regex","rationale":"'@' handles read as social or chat usernames.","suggestion":"Remove the handle.","examples":{"type":"message","bad":"I am @johndesigns everywhere","good":"I am a designer based in Bali"},"pattern":"(?<![\\w@.])@[A-Za-z][A-Za-z0-9._]{2,}","flags":"i","rewrite":"Let's keep everything in Fiverr's inbox so you're protected"},{"id":"OP-017","name":"Social profile pointer","group":"off-platform","severity":"warn","applies":["title","description","faq","message","request"],"kind":"regex","rationale":"Pointing buyers to your social profiles is off-platform contact.","suggestion":"Remove it.","examples":{"type":"message","bad":"Follow me on instagram for more","good":"Browse the gig gallery for more"},"pattern":"\\b(?:(?:find|follow|add|dm|message|text)\\s+me\\s+(?:on|at|via)\\s+(?:instagram|insta|ig|facebook|fb|linkedin|twitter|tiktok|snap)|my\\s+(?:instagram|insta|facebook|linkedin|twitter|tiktok|snapchat))\\b","flags":"i","rewrite":"Let's keep everything in Fiverr's inbox so you're protected"},{"id":"OP-018","name":"'my website / my site'","group":"off-platform","severity":"warn","applies":["message","request"],"kind":"regex","rationale":"Field-observed as a trigger; it points the buyer to an off-platform site.","suggestion":"Point to your gig portfolio instead.","examples":{"type":"message","bad":"Please check my website first","good":"Please check my gig portfolio first"},"pattern":"\\bmy\\s+(?:own\\s+)?(?:website|web\\s*site|site|portfolio\\s+site|blog|store)\\b","flags":"i","rewrite":"my gig portfolio"},{"id":"PAY-001","name":"Outside payment service","group":"payment","severity":"error","applies":["title","description","faq","message","request"],"kind":"regex","rationale":"Naming an outside payment service is blocked: all payments must go through Fiverr.","suggestion":"Remove it; the buyer pays through Fiverr checkout.","examples":{"type":"message","bad":"You can pay via PayPal","good":"You can order with Fiverr checkout"},"pattern":"\\b(?:p[\\s._\\-*]{0,2}[a4@][\\s._\\-*]{0,2}y[\\s._\\-*]{0,2}p[\\s._\\-*]{0,2}[a4@][\\s._\\-*]{0,2}[l1]|pay\\s*pal|venmo|cash\\s*app|cashapp|zelle|payoneer|revolut|transferwise|skrill|neteller|stripe\\s+link|payment\\s+link)\\b","flags":"i","rewrite":"order through Fiverr"},{"id":"PAY-002","name":"Bank transfer details","group":"payment","severity":"error","applies":["title","description","faq","message","request"],"kind":"regex","rationale":"Bank and wire details are payment-outside-Fiverr signals.","suggestion":"Remove; use Fiverr checkout.","examples":{"type":"message","bad":"Send a bank transfer to my IBAN","good":"Place the order and I start right away"},"pattern":"\\b(?:bank|wire)\\s+(?:transfer|payment|deposit)\\b|\\bwire\\s+me\\b|\\biban\\b|\\bswift\\s+code\\b|\\baccount\\s+(?:number|details)\\b|\\bsort\\s+code\\b|\\brouting\\s+number\\b|\\bwestern\\s+union\\b|\\bmoneygram\\b","flags":"i","rewrite":"order through Fiverr"},{"id":"PAY-003","name":"Crypto payment words","group":"payment","severity":"warn","applies":["message","request"],"kind":"regex","rationale":"Crypto terms suggest paying outside the platform. (False positive if your gig is about crypto work.)","suggestion":"Remove; use Fiverr checkout.","examples":{"type":"message","bad":"I take USDT too","good":"Fiverr checkout keeps both of us covered"},"pattern":"\\b(?:bitcoin|btc|usdt|usdc|ethereum|crypto(?:currency)?|binance|tether|wallet\\s+address)\\b","flags":"i","rewrite":"order through Fiverr"},{"id":"PAY-004","name":"Pay outside / direct payment","group":"payment","severity":"error","applies":["title","description","faq","message","request"],"kind":"regex","rationale":"Asking for payment or tips outside Fiverr is a serious violation and a top reason for restrictions.","suggestion":"Take every payment, tip included, through Fiverr.","examples":{"type":"message","bad":"You can pay me directly and save fees","good":"Order through Fiverr and tip inside the platform"},"pattern":"\\bpay(?:ing|ment)?\\s+(?:me\\s+)?(?:outside|directly|off[\\s-]?platform|off\\s+fiverr|externally)\\b|\\bpay(?:ment)?\\s+outside\\b|\\bdirect(?:ly)?\\s+(?:payment|pay|deal)\\b|\\boff[\\s-]?platform\\s+(?:payment|deal|order)\\b|\\b(?:tip|tips)\\s+(?:me\\s+)?(?:outside|directly|off[\\s-]?platform|in\\s+cash)\\b|\\b(?:accept|accepting|take|taking)\\s+(?:crypto|bitcoin|paypal|cash|direct)\\b|\\bpay\\s+(?:me\\s+)?(?:in\\s+)?cash\\b","flags":"i","rewrite":"order through Fiverr"},{"id":"PAY-005","name":"'pay me'","group":"payment","severity":"warn","applies":["message","request"],"kind":"regex","rationale":"Confirmed live: the word 'pay' in a seller message triggered the block.","suggestion":"Say 'my fee'.","examples":{"type":"message","bad":"Pay me after the draft","good":"My fee is on the package page"},"pattern":"\\bpay\\s+me\\b","flags":"i","rewrite":"my fee"},{"id":"PAY-006","name":"'pay / payment' (incl. pa.y)","group":"payment","severity":"warn","applies":["message","request"],"kind":"regex","rationale":"Confirmed live: 'pay' and 'payment' tripped the filter in an otherwise normal message.","suggestion":"Rephrase with 'fee' or 'order'. Never write 'pa.y' - that looks like evasion.","examples":{"type":"message","bad":"Please pay for the extra revision","good":"The extra revision has its own fee"},"pattern":"\\b(?:pay|paying|payment|payments)\\b(?!-)|\\bpa[._\\-*]y\\b","flags":"i","rewrite":"fee","rewrite_map":{"pay":"cover the fee","paying":"covering the fee","payment":"fee","payments":"fees"}},{"id":"REV-001","name":"Asking for a 5-star review","group":"review-manipulation","severity":"error","applies":["title","description","faq","message","request"],"kind":"regex","rationale":"Requesting a specific star rating is review manipulation.","suggestion":"Ask for honest feedback instead.","examples":{"type":"message","bad":"Please leave me a 5 star review","good":"I would value your honest feedback"},"pattern":"\\b(?:leave|give|drop|post|write|rate)\\s+(?:me\\s+|us\\s+)?(?:a\\s+)?(?:5|five)[\\s-]*stars?\\b(?:\\s+(?:review|rating|feedback))?|\\b(?:5|five)[\\s-]*stars?\\s+(?:review|rating|feedback)\\s+(?:please|only|required)\\b|\\brate\\s+(?:me\\s+)?(?:5|five)\\b","flags":"i","rewrite":"share your honest feedback"},{"id":"REV-002","name":"Incentivised review","group":"review-manipulation","severity":"error","applies":["title","description","faq","message","request"],"kind":"regex","rationale":"Trading discounts, refunds or bonuses for a positive review is prohibited.","suggestion":"Remove the incentive; you can only ask for honest feedback.","examples":{"type":"message","bad":"I will add a bonus for a 5 star review","good":"Reviews help other buyers decide"},"pattern":"\\b(?:positive|good|great|5[\\s-]?star|five[\\s-]?star)\\s+(?:review|rating|feedback)s?\\s+(?:in\\s+exchange|in\\s+return|for\\s+(?:a\\s+)?(?:discount|refund|free|bonus|extra|gift|tip))\\b|\\bin\\s+(?:exchange|return)\\s+for\\s+(?:a\\s+)?(?:positive|good|great|5|five)\\b|\\breview\\s+(?:swap|exchange|for\\s+review)\\b|\\b(?:discount|refund|bonus|freebie)\\s+(?:in\\s+exchange\\s+)?for\\s+(?:a\\s+)?(?:positive|good|5[\\s-]?star|five[\\s-]?star)\\s+(?:review|rating)","flags":"i"},{"id":"REV-003","name":"Pressure against negative reviews","group":"review-manipulation","severity":"warn","applies":["title","description","faq","message","request"],"kind":"regex","rationale":"Discouraging negative reviews is review manipulation.","suggestion":"Offer help fixing issues without conditions on the review.","examples":{"type":"message","bad":"Please don't leave a bad review","good":"Tell me what to improve and I will fix it"},"pattern":"\\bonly\\s+(?:positive|5[\\s-]?star|good|five[\\s-]?star)\\s+(?:review|feedback|rating)s?\\b|\\bdon'?t\\s+(?:leave|give|write)\\s+(?:me\\s+)?(?:a\\s+)?(?:bad|negative|low|poor)\\b|\\bmessage\\s+me\\s+before\\s+(?:leaving|giving|writing)\\s+(?:a\\s+)?(?:bad|negative|low)","flags":"i"},{"id":"REV-004","name":"Fake or paid reviews","group":"review-manipulation","severity":"error","applies":["title","description","faq","message","request"],"kind":"regex","rationale":"Buying, selling or fabricating reviews is banned.","suggestion":"Remove it.","examples":{"type":"description","bad":"I sell 5 star reviews cheaply","good":"I help you collect real testimonials"},"pattern":"\\bfake\\s+(?:reviews?|ratings?|testimonials?)\\b|\\b(?:buy|buying|sell|selling|purchase)\\s+(?:5[\\s-]?star\\s+)?(?:reviews|ratings)\\b|\\bpaid\\s+reviews?\\b","flags":"i"},{"id":"SEO-001","name":"Title over 80 characters","group":"gig-seo","severity":"error","applies":["title"],"kind":"heuristic","rationale":"Fiverr gig titles are capped at 80 characters; longer text is cut or rejected.","suggestion":"Cut filler words; lead with the service and keep the keyword near the start.","examples":{"type":"title","bad":"I will design a modern professional minimalist logo with brand guidelines and unlimited revisions fast","good":"I will design a modern minimalist logo with brand guidelines"},"heuristic":"title_length","params":{"max":80}},{"id":"SEO-002","name":"Keyword stuffing","group":"gig-seo","severity":"warn","applies":["title","description","faq","message","request"],"kind":"heuristic","rationale":"Repeating one keyword 3+ times in a title (or heavily in a description) reads as stuffing to buyers and moderators.","suggestion":"Use the keyword once, then add related terms.","examples":{"type":"title","bad":"I will design logo design, logo design for business logo design","good":"I will design a clean logo for your startup"},"heuristic":"keyword_stuffing","params":{"title_min":3,"body_min":6,"body_density":0.05}},{"id":"SEO-003","name":"ALL CAPS ratio","group":"gig-seo","severity":"warn","applies":["title","description","faq","message","request"],"kind":"heuristic","rationale":"Shouting in capitals reads as spam and hurts conversion.","suggestion":"Use sentence case; keep capitals for acronyms.","examples":{"type":"title","bad":"I WILL DESIGN A STUNNING LOGO FOR YOUR BRAND","good":"I will design a stunning logo for your brand"},"heuristic":"caps_ratio","params":{"title":0.4,"other":0.3,"min_letters":12}},{"id":"SEO-004","name":"Emoji spam","group":"gig-seo","severity":"warn","applies":["title","description","faq","message","request"],"kind":"heuristic","rationale":"Strings of emoji look like spam and are a common reason for gig edits.","suggestion":"Use plain text in titles and at most a few emoji elsewhere.","examples":{"type":"title","bad":"I will design your logo \ud83d\udd25\ud83d\ude80\u2728","good":"I will design your logo"},"heuristic":"emoji_spam","params":{"title":2,"other":6}},{"id":"SEO-005","name":"Missing 'I will' title convention","group":"gig-seo","severity":"info","applies":["title"],"kind":"heuristic","rationale":"Fiverr gig titles are conventionally written as 'I will ...' and search matches that phrasing.","suggestion":"Start with 'I will' followed by the service.","examples":{"type":"title","bad":"Professional logo design","good":"I will design a professional logo"},"heuristic":"missing_i_will","params":{}},{"id":"SEO-006","name":"Thin description (<120 words)","group":"gig-seo","severity":"warn","applies":["description"],"kind":"heuristic","rationale":"Very short descriptions rank and convert worse and give buyers little to trust.","suggestion":"Cover what is included, process, who it is for and what you need from the buyer.","examples":{"type":"description","bad":"I will make a logo for you.","good":"I design clean logos for small businesses and I include the source files and three revisions in every package. I design clean logos for small businesses and I include the source files and three revisions in every package. I design clean logos for small businesses and I include the source files and three revisions in every package. I design clean logos for small businesses and I include the source files and three revisions in every package. I design clean logos for small businesses and I include the source files and three revisions in every package. I design clean logos for small businesses and I include the source files and three revisions in every package. I design clean logos for small businesses and I include the source files and three revisions in every package. I design clean logos for small businesses and I include the source files and three revisions in every package. I design clean logos for small businesses and I include the source files and three revisions in every package. I design clean logos for small businesses and I include the source files and three revisions in every package. I design clean logos for small businesses and I include the source files and three revisions in every package. I design clean logos for small businesses and I include the source files and three revisions in every package."},"heuristic":"short_description","params":{"min_words":120}},{"id":"SEO-007","name":"Guarantee claims","group":"gig-seo","severity":"warn","applies":["title","description","faq","message","request"],"kind":"regex","rationale":"Guaranteed rankings, sales or results can't be promised and are flagged as misleading.","suggestion":"Describe the process and past deliverables, not guaranteed outcomes.","examples":{"type":"description","bad":"Guaranteed #1 ranking on Google in 7 days","good":"I deliver on time and offer free revisions until you are happy"},"pattern":"\\bguarantee[ds]?\\s+(?:you\\s+)?(?:#\\s?1|no\\.?\\s?1|first[\\s-]page|page\\s+(?:1|one)|top\\s+\\d+|top\\s+(?:rank\\w*|spot)|rank\\w*|sales|results|traffic|followers|income|roi|conversions|views|leads|profit)\\b|\\b100\\s*%\\s*(?:guarantee[ds]?\\s+)?(?:guarantee[ds]?|success|sales|results|ranking|rankings|profit)\\b|\\bguaranteed\\s+(?:#\\s?1|no\\.?\\s?1|first[\\s-]page|top\\s+\\d+|ranking|rankings|sales|results|traffic|followers|income|roi|conversions|views|leads|profit)\\b|\\b(?:get|reach|hit)\\s+(?:you\\s+)?(?:#\\s?1|no\\.?\\s?1)\\s+(?:on|in)\\s+google\\b","flags":"i"},{"id":"SEO-008","name":"Banned superlatives","group":"gig-seo","severity":"info","applies":["title","description","faq","message","request"],"kind":"regex","rationale":"Unprovable superlatives weaken trust and can be edited out by moderators.","suggestion":"Replace with a specific, checkable claim.","examples":{"type":"description","bad":"I am the #1 designer on Fiverr","good":"I design clean logos for startups"},"pattern":"(?<![\\w#])#\\s?1\\b|\\bnumber\\s+(?:one|1)\\b|\\bno\\.?\\s?1\\b|\\bworld'?s\\s+(?:best|greatest)\\b|\\bbest\\s+in\\s+the\\s+world\\b|\\bunbeatable\\b|\\bcheapest\\b|\\blowest\\s+price\\b|\\bunmatched\\b","flags":"i"},{"id":"SEO-009","name":"Trademark impersonation","group":"gig-seo","severity":"error","applies":["title","description","faq","message","request"],"kind":"regex","rationale":"Claiming to be an official partner of a brand you are not is impersonation and a policy violation.","suggestion":"Describe your real experience with the tool instead.","examples":{"type":"description","bad":"Official Google Partner agency","good":"I build Shopify stores that load fast"},"pattern":"\\bofficial\\s+(?:google|facebook|meta|amazon|apple|microsoft|shopify|tiktok|instagram|youtube|openai|fiverr|upwork|paypal|wordpress|linkedin)(?:\\s+(?:partner|expert|agency|certified|reseller|employee|consultant))?|\\b(?:google|meta|amazon|shopify|microsoft|facebook|tiktok)\\s+(?:certified|authori[sz]ed|verified)\\s+(?:partner|expert|agency|seller|professional)\\b","flags":"i"},{"id":"SEO-010","name":"Excess exclamation marks","group":"gig-seo","severity":"warn","applies":["title","description","faq","message","request"],"kind":"regex","rationale":"Stacked exclamation marks read as spam.","suggestion":"Use one at most.","examples":{"type":"description","bad":"Order now!!!","good":"Order now!"},"pattern":"!{2,}","flags":"i","rewrite":"!"},{"id":"SEO-011","name":"Keyword dump list","group":"gig-seo","severity":"warn","applies":["description"],"kind":"heuristic","rationale":"A long comma-separated list of keywords is stuffing and unreadable.","suggestion":"Turn it into sentences that describe what you deliver.","examples":{"type":"description","bad":"logo, branding, logo design, brand identity, minimalist logo, business logo, modern logo, custom logo, vector logo","good":"I design logos and brand identities for small businesses."},"heuristic":"keyword_dump","params":{"min_items":8}},{"id":"REQ-001","name":"Generic greeting (Dear Sir/Madam)","group":"buyer-request","severity":"warn","applies":["message","request"],"kind":"regex","rationale":"Template greetings are the first sign of copy-paste offers, and buyers skip them.","suggestion":"Use the buyer's name or reference something specific from the request.","examples":{"type":"request","bad":"Dear Sir, I can help you","good":"Hi, I can help you"},"pattern":"\\b(?:dear|hello|hi|hey)\\s+(?:sir|madam|sir\\s*/\\s*madam|sir\\s+or\\s+madam|sir\\s+and\\s+madam|client|buyer|esteemed\\s+\\w+|valued\\s+\\w+|friend)\\b[,!]?","flags":"i","rewrite":"Hi,"},{"id":"REQ-002","name":"Generic expertise claim","group":"buyer-request","severity":"warn","applies":["message","request"],"kind":"regex","rationale":"'I am an expert in this field' says nothing specific and appears in most spam offers.","suggestion":"Name one relevant project or result you can verify.","examples":{"type":"request","bad":"I am an expert in this field","good":"I built three n8n workflows for lead capture last quarter"},"pattern":"\\bi\\s*(?:am|'m)\\s+(?:an?\\s+)?(?:expert|professional|experienced|skilled)\\s+(?:in|at)\\s+(?:this|your|that)\\s+(?:field|area|domain|niche|type\\s+of\\s+work)\\b","flags":"i"},{"id":"REQ-003","name":"'I read your request'","group":"buyer-request","severity":"warn","applies":["message","request"],"kind":"regex","rationale":"This opener is pasted into every offer and signals no real reading.","suggestion":"Prove you read it by quoting a detail or asking one specific question.","examples":{"type":"request","bad":"I have read your request carefully","good":"You mention a Shopify store with 300 SKUs; are the images already cropped?"},"pattern":"\\bi\\s+(?:have\\s+)?(?:read|seen|gone\\s+through|checked|reviewed|viewed)\\s+(?:all\\s+)?(?:your|the)\\s+(?:project|request|requirements?|description|post|brief|job)s?\\b(?:\\s+(?:carefully|thoroughly|completely))?","flags":"i"},{"id":"REQ-004","name":"'I can do this perfectly'","group":"buyer-request","severity":"info","applies":["message","request"],"kind":"regex","rationale":"Confident but contentless; buyers read it as spam.","suggestion":"State how you would do it in one line.","examples":{"type":"request","bad":"I can do this perfectly","good":"I would start with a wireframe and send it today"},"pattern":"\\bi\\s+can\\s+(?:do|complete|handle)\\s+(?:this|it)\\s+(?:perfectly|easily|quickly|without\\s+any\\s+problem)\\b","flags":"i"},{"id":"REQ-005","name":"Unfilled template placeholder","group":"buyer-request","severity":"error","applies":["message","request"],"kind":"regex","rationale":"Sending '[name]' or '{{client}}' proves the message is a template.","suggestion":"Fill in or delete every placeholder before sending.","examples":{"type":"request","bad":"Hi [name], I can help","good":"Hi Sara, I can help"},"pattern":"\\[(?:name|client|buyer|company|your\\s+name|first\\s+name|business|project)\\]|\\{\\{\\s*\\w+\\s*\\}\\}|<(?:name|client|buyer)>","flags":"i"},{"id":"REQ-006","name":"'Check my portfolio'","group":"buyer-request","severity":"info","applies":["request"],"kind":"regex","rationale":"Pushing the buyer to do the work of evaluating you; lazy pitch.","suggestion":"Link one relevant sample in your gig gallery and say why it matches.","examples":{"type":"request","bad":"Please check my portfolio","good":"My gallery sample #2 is the closest match to your brief"},"pattern":"\\b(?:check|see|visit|view|look\\s+at)\\s+my\\s+(?:portfolio|gigs?|profile|work|samples)\\b","flags":"i"},{"id":"REQ-007","name":"Request response under 25 words","group":"buyer-request","severity":"info","applies":["request"],"kind":"heuristic","rationale":"Very short offers rarely show that you understood the brief.","suggestion":"Restate the goal, give a plan in one line, and ask one question.","examples":{"type":"request","bad":"Hi I can do it","good":"You need a landing page for your dental clinic and I would start by sketching the booking flow then ask which services matter most before sending the first draft today."},"heuristic":"short_request","params":{"min_words":25}}]};
+      /*RULES_JSON_END*/
+      const ZW = new Set(["​", "‌", "‍", "⁠", "﻿", "­", "‎", "‏"]);
+      const HOMO = {
+        а: "a",
+        е: "e",
+        о: "o",
+        р: "p",
+        с: "c",
+        х: "x",
+        і: "i",
+        ѕ: "s",
+        ј: "j",
+        һ: "h",
+        ԁ: "d",
+        ԛ: "q",
+        ο: "o",
+        α: "a",
+        ε: "e",
+        ρ: "p",
+        "’": "'",
+        "‘": "'",
+        "“": '"',
+        "”": '"',
+        "–": "-",
+        "—": "-",
+      };
+      const SEV = { error: 3, warn: 2, info: 1 };
+      const RULES = DATA.rules.map((r) =>
+        Object.assign(
+          {},
+          r,
+          r.kind === "regex"
+            ? {
+                re: new RegExp(
+                  r.pattern,
+                  "gu" + (r.flags.includes("i") ? "i" : ""),
+                ),
+              }
+            : {},
+        ),
+      );
+      function normalise(text) {
+        const out = [],
+          idx = [];
+        for (let i = 0; i < text.length; i++) {
+          let ch = text[i];
+          if (ZW.has(ch)) continue;
+          if (HOMO[ch]) ch = HOMO[ch];
+          const n = ch.normalize("NFKC");
+          for (const c of n) {
+            out.push(c);
+            idx.push(i);
+          }
+        }
+        return { norm: out.join(""), idx };
+      }
+      function postOk(r, m) {
+        if (!r.post) return true;
+        const [k, a] = r.post.split(":");
+        if (k === "digits") {
+          const [lo, hi] = a.split("-").map(Number);
+          const n = (m.match(/\d/g) || []).length;
+          return n >= lo && n <= hi;
+        }
+        return true;
+      }
+      const words = (t) => [
+        ...t.matchAll(/[\p{L}\p{N}]+(?:['\-][\p{L}\p{N}]+)*/gu),
+      ];
+      function isEmoji(cp) {
+        return DATA.meta.emoji_ranges.some(([lo, hi]) => cp >= lo && cp <= hi);
+      }
+      const H = {
+        title_length: (t, r) => {
+          const b = t.trimEnd();
+          return b.length > r.params.max
+            ? [
+                [
+                  r.params.max,
+                  b.length,
+                  b.length + " characters, limit is " + r.params.max,
+                ],
+              ]
+            : [];
+        },
+        keyword_stuffing: (t, r, tt) => {
+          const stop = new Set(DATA.meta.stopwords),
+            ws = words(t),
+            seen = new Map();
+          for (const m of ws) {
+            const w = m[0].toLowerCase();
+            if (w.length >= 4 && !stop.has(w) && !/^\d+$/.test(w)) {
+              if (!seen.has(w)) seen.set(w, []);
+              seen.get(w).push(m);
+            }
+          }
+          const out = [],
+            p = r.params;
+          for (const [w, ms] of seen) {
+            const n = ms.length;
+            if (tt === "title") {
+              if (n >= p.title_min)
+                out.push([
+                  ms[p.title_min - 1].index,
+                  ms[n - 1].index + ms[n - 1][0].length,
+                  "'" + w + "' appears " + n + " times",
+                ]);
+            } else if (
+              n >= p.body_min &&
+              n / Math.max(ws.length, 1) >= p.body_density
+            )
+              out.push([
+                ms[p.body_min - 1].index,
+                ms[n - 1].index + ms[n - 1][0].length,
+                "'" + w + "' appears " + n + " times",
+              ]);
+          }
+          return out;
+        },
+        caps_ratio: (t, r, tt) => {
+          const L = [...t].filter((c) => /\p{L}/u.test(c));
+          if (L.length < r.params.min_letters) return [];
+          const up =
+            L.filter((c) => c !== c.toLowerCase() && c === c.toUpperCase())
+              .length / L.length;
+          const lim = tt === "title" ? r.params.title : r.params.other;
+          return up > lim
+            ? [[0, t.trimEnd().length, Math.round(up * 100) + "% capitals"]]
+            : [];
+        },
+        emoji_spam: (t, r, tt) => {
+          const pos = [];
+          let i = 0;
+          for (const c of t) {
+            if (isEmoji(c.codePointAt(0))) pos.push([i, i + c.length]);
+            i += c.length;
+          }
+          const lim = tt === "title" ? r.params.title : r.params.other;
+          return pos.length >= lim
+            ? [[pos[0][0], pos[pos.length - 1][1], pos.length + " emoji"]]
+            : [];
+        },
+        missing_i_will: (t) => {
+          const s = t.trimStart();
+          if (s && !/^i\s+will\b/i.test(s)) {
+            const st = t.length - s.length;
+            return [
+              [
+                st,
+                Math.min(t.trimEnd().length, st + 24),
+                "title does not start with 'I will'",
+              ],
+            ];
+          }
+          return [];
+        },
+        short_description: (t, r) => {
+          const n = words(t).length;
+          return n < r.params.min_words
+            ? [[0, t.trimEnd().length, n + " words"]]
+            : [];
+        },
+        keyword_dump: (t, r) => {
+          const n = r.params.min_items;
+          const re = new RegExp(
+            "(?:[^,.\\n]{1,28},\\s*){" + (n - 1) + ",}[^,.\\n]{1,28}",
+            "g",
+          );
+          return [...t.matchAll(re)].map((m) => [
+            m.index,
+            m.index + m[0].length,
+            n + "+ keywords",
+          ]);
+        },
+        short_request: (t, r) => {
+          const n = words(t).length;
+          return n < r.params.min_words
+            ? [[0, t.trimEnd().length, n + " words"]]
+            : [];
+        },
+      };
+      function lint(text, type) {
+        const { norm, idx } = normalise(text),
+          hits = [],
+          other = [];
+        for (const r of RULES) {
+          if (!r.applies.includes(type)) continue;
+          if (r.kind === "regex") {
+            r.re.lastIndex = 0;
+            for (const m of norm.matchAll(r.re)) {
+              if (!m[0].length || !postOk(r, m[0])) continue;
+              const s = idx[m.index],
+                e = idx[m.index + m[0].length - 1] + 1;
+              hits.push({
+                rule: r.id,
+                name: r.name,
+                severity: r.severity,
+                start: s,
+                end: e,
+                text: text.slice(s, e),
+                why: r.rationale,
+                fix: r.suggestion,
+                fixable: r.rewrite !== undefined,
+              });
+            }
+          } else
+            for (const [s, e, d] of H[r.heuristic](text, r, type))
+              other.push({
+                rule: r.id,
+                name: r.name,
+                severity: r.severity,
+                start: s,
+                end: e,
+                text: text.slice(s, e),
+                why: r.rationale,
+                fix: r.suggestion,
+                fixable: false,
+                detail: d,
+              });
+        }
+        const ordered = [...hits].sort(
+          (a, b) =>
+            SEV[b.severity] - SEV[a.severity] ||
+            b.end - b.start - (a.end - a.start) ||
+            a.start - b.start,
+        );
+        const kept = [];
+        for (const f of ordered) {
+          if (kept.every((k) => f.end <= k.start || f.start >= k.end))
+            kept.push(f);
+        }
+        const findings = kept
+          .concat(other)
+          .sort(
+            (a, b) =>
+              a.start - b.start ||
+              SEV[b.severity] - SEV[a.severity] ||
+              (a.rule < b.rule ? -1 : 1),
+          );
+        const w = DATA.meta.severity_weights;
+        const score = Math.min(
+          100,
+          findings.reduce((a, f) => a + w[f.severity], 0),
+        );
+        let band = DATA.meta.bands[0][1];
+        for (const [fl, n] of DATA.meta.bands) if (score >= fl) band = n;
+        return { score, band, findings };
+      }
+      function applyFixes(text, rep) {
+        const safe = DATA.meta.safe_sentence,
+          byId = Object.fromEntries(RULES.map((r) => [r.id, r]));
+        let edits = [];
+        for (const f of rep.findings) {
+          const r = byId[f.rule];
+          if (r && r.rewrite !== undefined) {
+            const rep2 =
+              (r.rewrite_map && r.rewrite_map[f.text.trim().toLowerCase()]) ||
+              r.rewrite;
+            edits.push([f.start, f.end, rep2, SEV[r.severity]]);
+          }
+        }
+        edits.sort(
+          (a, b) => a[0] - b[0] || a[1] - b[1] || (a[2] < b[2] ? -1 : 1),
+        );
+        const gap =
+            /^\s*(?:(?:via|through|on|at|using|with|by|and|or|&|,)\s*)?$/i,
+          merged = [];
+        for (const e of edits) {
+          const l = merged[merged.length - 1];
+          if (l && gap.test(text.slice(l[1], e[0]))) {
+            if (e[3] > l[3]) l[2] = e[2];
+            l[1] = e[1];
+            l[3] = Math.max(l[3], e[3]);
+          } else merged.push([...e]);
+        }
+        let out = text;
+        for (let [s, e, rp] of merged.reverse()) {
+          let before = out.slice(0, s);
+          if (/^(Let's|Fiverr's)/.test(rp))
+            before = before.replace(
+              /\b(?:on|at|via|through|using|by)\s+$/i,
+              "",
+            );
+          if (/\b[Aa]n $/.test(before) && !/^[aeiou]/i.test(rp))
+            before = before.replace(/\b([Aa])n $/, "$1 ");
+          if (/(?:^|[.!?\n])\s*$/.test(before) && /^[a-z]/.test(rp))
+            rp = rp[0].toUpperCase() + rp.slice(1);
+          out = before + rp + out.slice(e);
+        }
+        const esc = safe.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        out = out
+          .replace(
+            new RegExp("(" + esc + ")(?:[\\s.,;:!\\-]*" + esc + ")+", "g"),
+            "$1",
+          )
+          .replace(/[ \t]{2,}/g, " ");
+        return out;
+      }
+      if (typeof document !== "undefined") {
+        const $ = (id) => document.getElementById(id),
+          EX = {
+            message:
+              "Dear Sir, I have read your request carefully.\nPlease contact me on WhatsApp +92 300 1234567 or email me at john.doe@gmail.com.\nYou can pay me directly via PayPal and save the fees. Leave me a 5 star review after!!",
+            title:
+              "LOGO DESIGN logo design for your logo design business - guaranteed #1 brand, unlimited revisions, fast delivery",
+            description:
+              "Official Google Partner agency. Guaranteed #1 ranking on Google in 7 days!!!",
+            faq: "Can we talk on Zoom? Yes, call me on skype or send a bank transfer.",
+            request:
+              "Hi [name], I am an expert in this field. Please check my portfolio.",
+          };
+        const esc = (s) =>
+          s.replace(
+            /[&<>]/g,
+            (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" })[c],
+          );
+        function run() {
+          const t = $("in").value,
+            type = $("type").value,
+            rep = lint(t, type);
+          $("score").textContent = rep.score;
+          $("score").className = "score band-" + rep.band;
+          $("band").textContent = rep.band.toUpperCase() + " risk";
+          const c = { error: 0, warn: 0, info: 0 };
+          rep.findings.forEach((f) => c[f.severity]++);
+          $("counts").textContent =
+            c.error + " error, " + c.warn + " warn, " + c.info + " info";
+          $("out").innerHTML = rep.findings.length
+            ? rep.findings
+                .map(
+                  (f) =>
+                    '<div class="f ' +
+                    f.severity +
+                    '"><b>' +
+                    f.rule +
+                    " " +
+                    esc(f.name) +
+                    "</b> <code>" +
+                    esc(f.text.slice(0, 80)) +
+                    "</code><small>" +
+                    esc(f.why) +
+                    (f.detail ? " (" + esc(f.detail) + ")" : "") +
+                    "</small><small>Try: " +
+                    esc(f.fix) +
+                    "</small></div>",
+                )
+                .join("")
+            : t.trim()
+              ? '<p style="color:var(--ok)">No findings. This is not a guarantee Fiverr will accept it.</p>'
+              : "";
+          return rep;
+        }
+        $("in").addEventListener("input", () => {
+          $("fixwrap").hidden = true;
+          run();
+        });
+        $("type").addEventListener("change", () => {
+          $("fixwrap").hidden = true;
+          run();
+        });
+        $("ex").addEventListener("click", () => {
+          $("in").value = EX[$("type").value];
+          $("fixwrap").hidden = true;
+          run();
+        });
+        $("fix").addEventListener("click", () => {
+          const rep = run();
+          $("fixed").textContent = applyFixes($("in").value, rep);
+          $("fixwrap").hidden = false;
+        });
+        run();
+      }
+    </script>
+  </body>
+</html>

@@ -1,0 +1,578 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Fiverr Copy Lint Playground</title>
+    <meta
+      name="description"
+      content="Paste a Fiverr gig title, description, FAQ or buyer message and see which words may get it blocked. Runs in your browser, nothing is uploaded. Not affiliated with Fiverr."
+    />
+    <style>
+      :root {
+        --bg: #fbfaf7;
+        --fg: #1c1b19;
+        --muted: #6b665e;
+        --card: #fff;
+        --line: #e4dfd5;
+        --err: #b3261e;
+        --warn: #9a6700;
+        --info: #3b6ea5;
+        --ok: #1a7f4b;
+        --accent: #c4501d;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root:not([data-theme="light"]) {
+          --bg: #171614;
+          --fg: #f1eee8;
+          --muted: #a39d92;
+          --card: #201f1c;
+          --line: #34312c;
+          --err: #ff8a80;
+          --warn: #e9b949;
+          --info: #8ab4e8;
+          --ok: #6fcf97;
+          --accent: #ff8a57;
+        }
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--fg);
+        font:
+          16px/1.5 system-ui,
+          -apple-system,
+          Segoe UI,
+          Roboto,
+          sans-serif;
+      }
+      main {
+        max-width: 860px;
+        margin: 0 auto;
+        padding: 24px 16px 48px;
+      }
+      h1 {
+        font-size: 1.5rem;
+        margin: 0 0 4px;
+      }
+      p.sub {
+        color: var(--muted);
+        margin: 0 0 16px;
+      }
+      .row {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        align-items: center;
+        margin: 8px 0;
+      }
+      select,
+      button,
+      textarea {
+        font: inherit;
+        color: inherit;
+        background: var(--card);
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 8px 10px;
+      }
+      button {
+        cursor: pointer;
+      }
+      button.primary {
+        background: var(--accent);
+        color: #fff;
+        border-color: var(--accent);
+      }
+      textarea {
+        width: 100%;
+        min-height: 160px;
+        resize: vertical;
+      }
+      .score {
+        font-size: 2rem;
+        font-weight: 700;
+      }
+      .band-low {
+        color: var(--ok);
+      }
+      .band-medium {
+        color: var(--warn);
+      }
+      .band-high {
+        color: var(--err);
+      }
+      .f {
+        background: var(--card);
+        border: 1px solid var(--line);
+        border-left: 4px solid var(--line);
+        border-radius: 8px;
+        padding: 10px 12px;
+        margin: 8px 0;
+      }
+      .f.error {
+        border-left-color: var(--err);
+      }
+      .f.warn {
+        border-left-color: var(--warn);
+      }
+      .f.info {
+        border-left-color: var(--info);
+      }
+      .f b {
+        font-size: 0.9rem;
+      }
+      .f small {
+        display: block;
+        color: var(--muted);
+      }
+      code {
+        background: var(--line);
+        padding: 1px 5px;
+        border-radius: 4px;
+      }
+      #fixed {
+        white-space: pre-wrap;
+        background: var(--card);
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 10px 12px;
+      }
+      footer {
+        margin-top: 28px;
+        color: var(--muted);
+        font-size: 0.9rem;
+      }
+      a {
+        color: var(--accent);
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Fiverr Copy Lint Playground</h1>
+      <p class="sub">
+        Paste text, see what may get it blocked. Runs entirely in your browser
+        with the same <code>rules.json</code> as the CLI. Community-observed
+        rules, <b>not an official Fiverr list</b>, not affiliated with Fiverr.
+      </p>
+      <div class="row">
+        <label for="type">Text type</label>
+        <select id="type">
+          <option>message</option>
+          <option>title</option>
+          <option>description</option>
+          <option>faq</option>
+          <option>request</option>
+        </select>
+        <button id="ex">Load a bad example</button
+        ><button id="fix" class="primary">Apply safe fixes</button>
+      </div>
+      <textarea
+        id="in"
+        spellcheck="false"
+        placeholder="Paste a gig title, description, FAQ answer or buyer message"
+      ></textarea>
+      <div class="row">
+        <span class="score" id="score">0</span><span id="band"></span
+        ><span id="counts" style="color: var(--muted)"></span>
+      </div>
+      <div id="out"></div>
+      <div id="fixwrap" hidden>
+        <h2 style="font-size: 1.1rem">Fixed text</h2>
+        <div id="fixed"></div>
+      </div>
+      <footer>
+        Part of
+        <a href="https://github.com/waseemnasir2k26/fiverr-copy-lint"
+          >fiverr-copy-lint</a
+        >
+        (MIT). Passing does not guarantee Fiverr accepts the text. Built by
+        <a
+          href="https://www.skynetjoe.com/?utm_source=github&amp;utm_medium=playground&amp;utm_campaign=fiverr-copy-lint"
+          >Waseem Nasir</a
+        >
+        at SkynetLabs.
+      </footer>
+    </main>
+    <script id="engine">
+      /*RULES_JSON_START*/
+      const DATA = __RULES_JSON__;
+      /*RULES_JSON_END*/
+      const ZW = new Set(["​", "‌", "‍", "⁠", "﻿", "­", "‎", "‏"]);
+      const HOMO = {
+        а: "a",
+        е: "e",
+        о: "o",
+        р: "p",
+        с: "c",
+        х: "x",
+        і: "i",
+        ѕ: "s",
+        ј: "j",
+        һ: "h",
+        ԁ: "d",
+        ԛ: "q",
+        ο: "o",
+        α: "a",
+        ε: "e",
+        ρ: "p",
+        "’": "'",
+        "‘": "'",
+        "“": '"',
+        "”": '"',
+        "–": "-",
+        "—": "-",
+      };
+      const SEV = { error: 3, warn: 2, info: 1 };
+      const RULES = DATA.rules.map((r) =>
+        Object.assign(
+          {},
+          r,
+          r.kind === "regex"
+            ? {
+                re: new RegExp(
+                  r.pattern,
+                  "gu" + (r.flags.includes("i") ? "i" : ""),
+                ),
+              }
+            : {},
+        ),
+      );
+      function normalise(text) {
+        const out = [],
+          idx = [];
+        for (let i = 0; i < text.length; i++) {
+          let ch = text[i];
+          if (ZW.has(ch)) continue;
+          if (HOMO[ch]) ch = HOMO[ch];
+          const n = ch.normalize("NFKC");
+          for (const c of n) {
+            out.push(c);
+            idx.push(i);
+          }
+        }
+        return { norm: out.join(""), idx };
+      }
+      function postOk(r, m) {
+        if (!r.post) return true;
+        const [k, a] = r.post.split(":");
+        if (k === "digits") {
+          const [lo, hi] = a.split("-").map(Number);
+          const n = (m.match(/\d/g) || []).length;
+          return n >= lo && n <= hi;
+        }
+        return true;
+      }
+      const words = (t) => [
+        ...t.matchAll(/[\p{L}\p{N}]+(?:['\-][\p{L}\p{N}]+)*/gu),
+      ];
+      function isEmoji(cp) {
+        return DATA.meta.emoji_ranges.some(([lo, hi]) => cp >= lo && cp <= hi);
+      }
+      const H = {
+        title_length: (t, r) => {
+          const b = t.trimEnd();
+          return b.length > r.params.max
+            ? [
+                [
+                  r.params.max,
+                  b.length,
+                  b.length + " characters, limit is " + r.params.max,
+                ],
+              ]
+            : [];
+        },
+        keyword_stuffing: (t, r, tt) => {
+          const stop = new Set(DATA.meta.stopwords),
+            ws = words(t),
+            seen = new Map();
+          for (const m of ws) {
+            const w = m[0].toLowerCase();
+            if (w.length >= 4 && !stop.has(w) && !/^\d+$/.test(w)) {
+              if (!seen.has(w)) seen.set(w, []);
+              seen.get(w).push(m);
+            }
+          }
+          const out = [],
+            p = r.params;
+          for (const [w, ms] of seen) {
+            const n = ms.length;
+            if (tt === "title") {
+              if (n >= p.title_min)
+                out.push([
+                  ms[p.title_min - 1].index,
+                  ms[n - 1].index + ms[n - 1][0].length,
+                  "'" + w + "' appears " + n + " times",
+                ]);
+            } else if (
+              n >= p.body_min &&
+              n / Math.max(ws.length, 1) >= p.body_density
+            )
+              out.push([
+                ms[p.body_min - 1].index,
+                ms[n - 1].index + ms[n - 1][0].length,
+                "'" + w + "' appears " + n + " times",
+              ]);
+          }
+          return out;
+        },
+        caps_ratio: (t, r, tt) => {
+          const L = [...t].filter((c) => /\p{L}/u.test(c));
+          if (L.length < r.params.min_letters) return [];
+          const up =
+            L.filter((c) => c !== c.toLowerCase() && c === c.toUpperCase())
+              .length / L.length;
+          const lim = tt === "title" ? r.params.title : r.params.other;
+          return up > lim
+            ? [[0, t.trimEnd().length, Math.round(up * 100) + "% capitals"]]
+            : [];
+        },
+        emoji_spam: (t, r, tt) => {
+          const pos = [];
+          let i = 0;
+          for (const c of t) {
+            if (isEmoji(c.codePointAt(0))) pos.push([i, i + c.length]);
+            i += c.length;
+          }
+          const lim = tt === "title" ? r.params.title : r.params.other;
+          return pos.length >= lim
+            ? [[pos[0][0], pos[pos.length - 1][1], pos.length + " emoji"]]
+            : [];
+        },
+        missing_i_will: (t) => {
+          const s = t.trimStart();
+          if (s && !/^i\s+will\b/i.test(s)) {
+            const st = t.length - s.length;
+            return [
+              [
+                st,
+                Math.min(t.trimEnd().length, st + 24),
+                "title does not start with 'I will'",
+              ],
+            ];
+          }
+          return [];
+        },
+        short_description: (t, r) => {
+          const n = words(t).length;
+          return n < r.params.min_words
+            ? [[0, t.trimEnd().length, n + " words"]]
+            : [];
+        },
+        keyword_dump: (t, r) => {
+          const n = r.params.min_items;
+          const re = new RegExp(
+            "(?:[^,.\\n]{1,28},\\s*){" + (n - 1) + ",}[^,.\\n]{1,28}",
+            "g",
+          );
+          return [...t.matchAll(re)].map((m) => [
+            m.index,
+            m.index + m[0].length,
+            n + "+ keywords",
+          ]);
+        },
+        short_request: (t, r) => {
+          const n = words(t).length;
+          return n < r.params.min_words
+            ? [[0, t.trimEnd().length, n + " words"]]
+            : [];
+        },
+      };
+      function lint(text, type) {
+        const { norm, idx } = normalise(text),
+          hits = [],
+          other = [];
+        for (const r of RULES) {
+          if (!r.applies.includes(type)) continue;
+          if (r.kind === "regex") {
+            r.re.lastIndex = 0;
+            for (const m of norm.matchAll(r.re)) {
+              if (!m[0].length || !postOk(r, m[0])) continue;
+              const s = idx[m.index],
+                e = idx[m.index + m[0].length - 1] + 1;
+              hits.push({
+                rule: r.id,
+                name: r.name,
+                severity: r.severity,
+                start: s,
+                end: e,
+                text: text.slice(s, e),
+                why: r.rationale,
+                fix: r.suggestion,
+                fixable: r.rewrite !== undefined,
+              });
+            }
+          } else
+            for (const [s, e, d] of H[r.heuristic](text, r, type))
+              other.push({
+                rule: r.id,
+                name: r.name,
+                severity: r.severity,
+                start: s,
+                end: e,
+                text: text.slice(s, e),
+                why: r.rationale,
+                fix: r.suggestion,
+                fixable: false,
+                detail: d,
+              });
+        }
+        const ordered = [...hits].sort(
+          (a, b) =>
+            SEV[b.severity] - SEV[a.severity] ||
+            b.end - b.start - (a.end - a.start) ||
+            a.start - b.start,
+        );
+        const kept = [];
+        for (const f of ordered) {
+          if (kept.every((k) => f.end <= k.start || f.start >= k.end))
+            kept.push(f);
+        }
+        const findings = kept
+          .concat(other)
+          .sort(
+            (a, b) =>
+              a.start - b.start ||
+              SEV[b.severity] - SEV[a.severity] ||
+              (a.rule < b.rule ? -1 : 1),
+          );
+        const w = DATA.meta.severity_weights;
+        const score = Math.min(
+          100,
+          findings.reduce((a, f) => a + w[f.severity], 0),
+        );
+        let band = DATA.meta.bands[0][1];
+        for (const [fl, n] of DATA.meta.bands) if (score >= fl) band = n;
+        return { score, band, findings };
+      }
+      function applyFixes(text, rep) {
+        const safe = DATA.meta.safe_sentence,
+          byId = Object.fromEntries(RULES.map((r) => [r.id, r]));
+        let edits = [];
+        for (const f of rep.findings) {
+          const r = byId[f.rule];
+          if (r && r.rewrite !== undefined) {
+            const rep2 =
+              (r.rewrite_map && r.rewrite_map[f.text.trim().toLowerCase()]) ||
+              r.rewrite;
+            edits.push([f.start, f.end, rep2, SEV[r.severity]]);
+          }
+        }
+        edits.sort(
+          (a, b) => a[0] - b[0] || a[1] - b[1] || (a[2] < b[2] ? -1 : 1),
+        );
+        const gap =
+            /^\s*(?:(?:via|through|on|at|using|with|by|and|or|&|,)\s*)?$/i,
+          merged = [];
+        for (const e of edits) {
+          const l = merged[merged.length - 1];
+          if (l && gap.test(text.slice(l[1], e[0]))) {
+            if (e[3] > l[3]) l[2] = e[2];
+            l[1] = e[1];
+            l[3] = Math.max(l[3], e[3]);
+          } else merged.push([...e]);
+        }
+        let out = text;
+        for (let [s, e, rp] of merged.reverse()) {
+          let before = out.slice(0, s);
+          if (/^(Let's|Fiverr's)/.test(rp))
+            before = before.replace(
+              /\b(?:on|at|via|through|using|by)\s+$/i,
+              "",
+            );
+          if (/\b[Aa]n $/.test(before) && !/^[aeiou]/i.test(rp))
+            before = before.replace(/\b([Aa])n $/, "$1 ");
+          if (/(?:^|[.!?\n])\s*$/.test(before) && /^[a-z]/.test(rp))
+            rp = rp[0].toUpperCase() + rp.slice(1);
+          out = before + rp + out.slice(e);
+        }
+        const esc = safe.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        out = out
+          .replace(
+            new RegExp("(" + esc + ")(?:[\\s.,;:!\\-]*" + esc + ")+", "g"),
+            "$1",
+          )
+          .replace(/[ \t]{2,}/g, " ");
+        return out;
+      }
+      if (typeof document !== "undefined") {
+        const $ = (id) => document.getElementById(id),
+          EX = {
+            message:
+              "Dear Sir, I have read your request carefully.\nPlease contact me on WhatsApp +92 300 1234567 or email me at john.doe@gmail.com.\nYou can pay me directly via PayPal and save the fees. Leave me a 5 star review after!!",
+            title:
+              "LOGO DESIGN logo design for your logo design business - guaranteed #1 brand, unlimited revisions, fast delivery",
+            description:
+              "Official Google Partner agency. Guaranteed #1 ranking on Google in 7 days!!!",
+            faq: "Can we talk on Zoom? Yes, call me on skype or send a bank transfer.",
+            request:
+              "Hi [name], I am an expert in this field. Please check my portfolio.",
+          };
+        const esc = (s) =>
+          s.replace(
+            /[&<>]/g,
+            (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" })[c],
+          );
+        function run() {
+          const t = $("in").value,
+            type = $("type").value,
+            rep = lint(t, type);
+          $("score").textContent = rep.score;
+          $("score").className = "score band-" + rep.band;
+          $("band").textContent = rep.band.toUpperCase() + " risk";
+          const c = { error: 0, warn: 0, info: 0 };
+          rep.findings.forEach((f) => c[f.severity]++);
+          $("counts").textContent =
+            c.error + " error, " + c.warn + " warn, " + c.info + " info";
+          $("out").innerHTML = rep.findings.length
+            ? rep.findings
+                .map(
+                  (f) =>
+                    '<div class="f ' +
+                    f.severity +
+                    '"><b>' +
+                    f.rule +
+                    " " +
+                    esc(f.name) +
+                    "</b> <code>" +
+                    esc(f.text.slice(0, 80)) +
+                    "</code><small>" +
+                    esc(f.why) +
+                    (f.detail ? " (" + esc(f.detail) + ")" : "") +
+                    "</small><small>Try: " +
+                    esc(f.fix) +
+                    "</small></div>",
+                )
+                .join("")
+            : t.trim()
+              ? '<p style="color:var(--ok)">No findings. This is not a guarantee Fiverr will accept it.</p>'
+              : "";
+          return rep;
+        }
+        $("in").addEventListener("input", () => {
+          $("fixwrap").hidden = true;
+          run();
+        });
+        $("type").addEventListener("change", () => {
+          $("fixwrap").hidden = true;
+          run();
+        });
+        $("ex").addEventListener("click", () => {
+          $("in").value = EX[$("type").value];
+          $("fixwrap").hidden = true;
+          run();
+        });
+        $("fix").addEventListener("click", () => {
+          const rep = run();
+          $("fixed").textContent = applyFixes($("in").value, rep);
+          $("fixwrap").hidden = false;
+        });
+        run();
+      }
+    </script>
+  </body>
+</html>

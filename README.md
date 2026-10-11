@@ -118,7 +118,7 @@ Copy `skill/SKILL.md` to `~/.claude/skills/fiverr-lint/SKILL.md`. Then in Claude
 
 ## Browser playground
 
-Open `docs/index.html` locally (or the hosted copy if GitHub Pages is enabled for this repo). It is one file with `rules.json` inlined, and it makes no network requests.
+Try it at **https://waseemnasir2k26.github.io/fiverr-copy-lint/** or open `docs/index.html` locally. It is one file with `rules.json` inlined, and it makes no network requests.
 
 ## How the score works
 

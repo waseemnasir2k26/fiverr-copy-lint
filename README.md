@@ -1,6 +1,5 @@
 # Fiverr Copy Lint: find out why your Fiverr message was blocked
 
-[![CI](https://github.com/waseemnasir2k26/fiverr-copy-lint/actions/workflows/ci.yml/badge.svg)](https://github.com/waseemnasir2k26/fiverr-copy-lint/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 ![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)
 ![Dependencies: none](https://img.shields.io/badge/dependencies-none-brightgreen.svg)
@@ -92,7 +91,7 @@ The most common reasons sellers report, and what this linter checks:
 | GitHub Action        | [`action.yml`](action.yml): lint copy files in CI, optional SARIF upload.                                                                                                                                                            |
 | Claude skill         | [`skill/SKILL.md`](skill/SKILL.md): a `/fiverr-lint` skill that wraps the CLI.                                                                                                                                                       |
 | Browser playground   | [`docs/index.html`](docs/index.html), a single file that runs the same `rules.json` in JavaScript. Nothing is uploaded.                                                                                                              |
-| Tested               | 221 pytest cases: a positive and negative fixture for every rule, evasion cases, score monotonicity, `--fix` round trips, SARIF shape, and a check that the JS playground matches the Python engine. CI on Linux, Windows and macOS. |
+| Tested               | 221 pytest cases: a positive and negative fixture for every rule, evasion cases, score monotonicity, `--fix` round trips, SARIF shape, and a check that the JS playground matches the Python engine. Run locally on Windows with Python 3.11; a 3-OS GitHub Actions workflow is provided in [`ci/github-actions-ci.yml`](ci/github-actions-ci.yml). |
 
 ### Gig SEO hygiene, in short
 
@@ -156,6 +155,8 @@ Edit `tools/gen_rules.py` (the source of `rules.json`), then run `python tools/g
 - It does not log in to Fiverr, scrape it or automate anything on the platform.
 
 ## Development
+
+A GitHub Actions workflow (Linux, Windows, macOS, Python 3.10 and 3.12, plus a self-test of the Action) is in [`ci/github-actions-ci.yml`](ci/github-actions-ci.yml). Copy it to `.github/workflows/ci.yml` to enable it; pushing workflow files needs a token with the `workflow` scope, which the release tooling did not have, so it is not enabled yet.
 
 ```bash
 pip install -e ".[test]"

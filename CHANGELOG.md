@@ -16,4 +16,4 @@ All notable changes to this project are documented here. Format follows [Keep a 
 - `/fiverr-lint` Claude skill (`skill/SKILL.md`).
 - Single-file browser playground (`docs/index.html`) that runs the same `rules.json` in JavaScript.
 - Auto-generated rule catalogue (`docs/rules.md`).
-- Test suite (200+ cases) and CI on Linux, Windows and macOS.
+- Test suite (221 cases). A 3-OS GitHub Actions workflow ships as `ci/github-actions-ci.yml` (copy to `.github/workflows/` to enable).

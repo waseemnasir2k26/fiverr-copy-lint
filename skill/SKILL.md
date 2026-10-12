@@ -12,7 +12,7 @@ Runs the `fiverr-copy-lint` CLI on Fiverr copy, explains each finding, and retur
 ## 1. Make sure the CLI is available
 
 ```bash
-fiverr-copy-lint --version || pip install fiverr-copy-lint || pip install git+https://github.com/waseemnasir2k26/fiverr-copy-lint
+fiverr-copy-lint --version || pip install git+https://github.com/waseemnasir2k26/fiverr-copy-lint
 ```
 
 Python 3.10+ is the only requirement. There are no other dependencies.

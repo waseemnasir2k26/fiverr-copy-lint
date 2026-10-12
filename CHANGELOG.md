@@ -2,6 +2,13 @@
 
 All notable changes to this project are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [Unreleased]
+
+### Fixed
+
+- `check -` now decodes stdin as UTF-8 regardless of the console code page, so zero-width and full-width evasions are caught when piping on Windows.
+- The Claude skill no longer tries `pip install fiverr-copy-lint` (the name is not on PyPI); it installs from GitHub.
+
 ## [1.0.0] - 2026-10-12
 
 ### Added

@@ -16,6 +16,11 @@ DISCLAIMER = "Community-observed rules, not an official Fiverr list. Not affilia
 
 def _read(path: str) -> tuple[str, str]:
     if path == "-":
+        # Decode stdin as UTF-8 regardless of the console code page (Windows pipes
+        # default to cp1252, which would mangle zero-width / full-width evasions).
+        buf = getattr(sys.stdin, "buffer", None)
+        if buf is not None:
+            return "<stdin>", buf.read().decode("utf-8-sig", errors="replace")
         return "<stdin>", sys.stdin.read()
     return path, Path(path).read_text(encoding="utf-8")
 

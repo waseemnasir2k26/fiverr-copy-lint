@@ -91,7 +91,7 @@ The most common reasons sellers report, and what this linter checks:
 | GitHub Action        | [`action.yml`](action.yml): lint copy files in CI, optional SARIF upload.                                                                                                                                                            |
 | Claude skill         | [`skill/SKILL.md`](skill/SKILL.md): a `/fiverr-lint` skill that wraps the CLI.                                                                                                                                                       |
 | Browser playground   | [`docs/index.html`](docs/index.html), a single file that runs the same `rules.json` in JavaScript. Nothing is uploaded.                                                                                                              |
-| Tested               | 221 pytest cases: a positive and negative fixture for every rule, evasion cases, score monotonicity, `--fix` round trips, SARIF shape, and a check that the JS playground matches the Python engine. Run locally on Windows with Python 3.11; a 3-OS GitHub Actions workflow is provided in [`ci/github-actions-ci.yml`](ci/github-actions-ci.yml). |
+| Tested               | 222 pytest cases: a positive and negative fixture for every rule, evasion cases, score monotonicity, `--fix` round trips, SARIF shape, and a check that the JS playground matches the Python engine. Run locally on Windows with Python 3.11; a 3-OS GitHub Actions workflow is provided in [`ci/github-actions-ci.yml`](ci/github-actions-ci.yml). |
 
 ### Gig SEO hygiene, in short
 

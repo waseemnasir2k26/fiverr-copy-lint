@@ -215,6 +215,16 @@ def test_cli_exit_codes_and_stdin():
     assert run_cli(["check", "-", "--fail-on", "never"], "email me at a@b.com").returncode == 0
 
 
+def test_cli_stdin_is_utf8_even_on_a_legacy_code_page():
+    # Windows pipes default to cp1252; zero-width and full-width evasions must survive stdin.
+    import os
+    env = {**os.environ, "PYTHONIOENCODING": "cp1252"}
+    for text in ("add me on what​sapp", "contact me on ｗｈａｔｓａｐｐ"):
+        r = subprocess.run([sys.executable, "-m", "fiverr_copy_lint", "check", "-"], input=text.encode("utf-8"),
+                           capture_output=True, cwd=ROOT, env=env)
+        assert r.returncode == 1 and b"OP-006" in r.stdout, text.encode("unicode_escape")
+
+
 def test_cli_fix_outputs_text_on_stdout():
     r = run_cli(["check", "-", "--fix"], "Email me at a@b.com")
     assert r.stdout.strip() == "Let's keep everything in Fiverr's inbox so you're protected"
